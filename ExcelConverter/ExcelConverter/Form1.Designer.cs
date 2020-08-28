@@ -61,9 +61,8 @@
 			this.Label_Text.Font = new System.Drawing.Font("Arial", 18F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.Label_Text.Location = new System.Drawing.Point(12, 9);
 			this.Label_Text.Name = "Label_Text";
-			this.Label_Text.Size = new System.Drawing.Size(126, 27);
+			this.Label_Text.Size = new System.Drawing.Size(0, 27);
 			this.Label_Text.TabIndex = 2;
-			this.Label_Text.Text = "Label_Text";
 			// 
 			// Form1
 			// 
@@ -74,7 +73,7 @@
 			this.Controls.Add(this.Btn_ConvertExcel);
 			this.Controls.Add(this.Btn_CreateDirectory);
 			this.Name = "Form1";
-			this.Text = "Form1";
+			this.Text = "Excel Converter";
 			this.ResumeLayout(false);
 			this.PerformLayout();
 
