@@ -9,6 +9,10 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
+// ExcelDataReader 和 ExcelDataReader.DataSet 用
+using System.Data;
+using ExcelDataReader;
+
 namespace ExcelConverter
 {
 	public partial class Form1 : Form
@@ -85,7 +89,9 @@ namespace ExcelConverter
 				return false;
 
 			// Do Convert
-			ConvertExcelToBinary( iFilePath );
+			bool _convertResult = ConvertExcelToBinary( iFilePath );
+			if( !_convertResult )
+				return false;
 
 			return true;
 		}
@@ -114,7 +120,25 @@ namespace ExcelConverter
 
 		private bool ConvertExcelToBinary( string iFilePath )
 		{
-			return false;
+			try
+			{
+				FileStream _fileStream = File.Open( iFilePath, FileMode.Open, FileAccess.Read );
+				IExcelDataReader excelDataReader = ExcelReaderFactory.CreateOpenXmlReader( _fileStream );
+
+				DataSet _dataSet = excelDataReader.AsDataSet();
+				DataRowCollection _dataRow = _dataSet.Tables[ 0 ].Rows;
+				DataColumnCollection _dataColumn = _dataSet.Tables[ 0 ].Columns;
+
+
+
+				return true;
+			}
+			catch ( Exception _exception )
+			{
+				Label_Text.Text		= "[Exception] Msg : " + _exception.Message;
+
+				return false;
+			}
 		}
 
 		#endregion
