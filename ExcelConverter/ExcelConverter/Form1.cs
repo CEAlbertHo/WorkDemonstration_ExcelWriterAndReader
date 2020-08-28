@@ -114,7 +114,7 @@ namespace ExcelConverter
 
 		private bool ConvertExcelToBinary( string iFilePath )
 		{
-
+			return false;
 		}
 
 		#endregion
