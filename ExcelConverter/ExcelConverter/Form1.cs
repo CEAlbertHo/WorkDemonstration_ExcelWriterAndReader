@@ -17,6 +17,7 @@ namespace ExcelConverter
 {
 	public partial class Form1 : Form
 	{
+		// Define
 		const string SourceFolderName		= "Excel_SourceFolder";
 		const string ConvertedFolderName	= "Excel_ConvertedFolder";
 		static readonly string[] AcceptedExcelExtentionArray = new string[]{ ".xlsx" };
@@ -61,8 +62,8 @@ namespace ExcelConverter
 		{
 			Label_Text.Text		= "Running";
 			
-			int _successCount	= 0;
-			int _failCount		= 0;
+			List<string> _successFilePath	= new List<string>();
+			List<string> _failFilePath		= new List<string>();
 
 			string[] _filesPath = Directory.GetFiles( GetSourceFolderPath(), "*.*", SearchOption.AllDirectories );
 
@@ -70,12 +71,34 @@ namespace ExcelConverter
 			{
 				bool _result = TryConvertExcel( _filesPath[ i ] );
 				if( _result )
-					_successCount++;
+					_successFilePath.Add( _filesPath[ i ] );
 				else
-					_failCount++;
+					_failFilePath.Add( _filesPath[ i ] );
 			}
 
-			Label_Text.Text = string.Format( "ConvertExcel Done.\nSuccessed Num : {0}.\nFailed Num : {1}", _successCount, _failCount );
+			Label_Text.Text = string.Format( "ConvertExcel Done.\nSuccessed Num : {0}.\nFailed Num : {1}", _successFilePath.Count, _failFilePath.Count );
+
+			
+			// 輸出 Log
+			string _logText = string.Empty;
+			_logText += string.Format( "Successed File Count : {0}\n", _successFilePath.Count );
+
+			for( int i=0; i < _successFilePath.Count; i++ )
+			{
+				_logText += string.Format( "- {0}\n", _successFilePath[ i ] );
+			}
+
+			_logText += string.Format( "\n\n---\n\n" );
+			_logText += string.Format( "Failed File Count : {0}\n", _failFilePath.Count );
+			for( int i=0; i < _failFilePath.Count; i++ )
+			{
+				_logText += string.Format( "- {0}\n", _failFilePath[ i ] );
+			}
+
+			_logText += string.Format( "\n\n---\n\n" );
+			_logText += "ConvertExcel Done.";
+
+			LogTextResult( _logText, GetConvertedFolderPath() );
 		}
 
 		#endregion
@@ -139,6 +162,28 @@ namespace ExcelConverter
 
 				return false;
 			}
+		}
+
+		#endregion
+
+		#region Log
+
+		public void LogTextResult( string iLog, string iLogFolderPath )
+		{
+			string _FileName = string.Format( "[{0}] Convert Excel Result.txt", DateTime.Now.ToString( "yyyy.MM.dd - HHmmss" ) );
+			string _FilePath = Path.Combine( iLogFolderPath, _FileName );
+
+			using( FileStream _fs = File.Create( _FilePath ) )
+			{
+				FileStream_AddText( _fs, iLog );
+				_fs.Close();
+			}
+		}
+
+		private void FileStream_AddText( FileStream iFileStream, string iText )
+		{
+			byte[] _info = new UTF8Encoding( true ).GetBytes( iText );
+			iFileStream.Write( _info, 0, _info.Length );
 		}
 
 		#endregion
