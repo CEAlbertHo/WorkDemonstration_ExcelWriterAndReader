@@ -12,15 +12,31 @@ using System.Windows.Forms;
 // ExcelDataReader 和 ExcelDataReader.DataSet 用
 using System.Data;
 using ExcelDataReader;
+using System.Security.AccessControl;
 
 namespace ExcelConverter
 {
+	public enum EExcelContentType
+	{
+		None,
+		Single,		// 單一表格
+		Multiple,	// 多重表格
+	}
+
 	public partial class Form1 : Form
 	{
 		// Define
 		const string SourceFolderName		= "Excel_SourceFolder";
 		const string ConvertedFolderName	= "Excel_ConvertedFolder";
 		static readonly string[] AcceptedExcelExtentionArray = new string[]{ ".xlsx" };
+
+		const string ExcelContentType_Single	= "Single";
+		const string ExcelContentType_Multiple	= "Multiple";
+
+		const string EExcelReadSymbol = "#";
+		const string EExcelReadSymbol_EndOfSheet = "#END";
+		
+
 
 		public Form1()
 		{
@@ -141,18 +157,45 @@ namespace ExcelConverter
 			return false;
 		}
 
+		/// <summary>
+		///  實際執行 Excel 轉換
+		/// </summary>
+		/// <param name="iFilePath"> Excel 檔案路徑 </param>
+		/// <returns></returns>
 		private bool ConvertExcelToBinary( string iFilePath )
 		{
 			try
 			{
-				FileStream _fileStream = File.Open( iFilePath, FileMode.Open, FileAccess.Read );
-				IExcelDataReader excelDataReader = ExcelReaderFactory.CreateOpenXmlReader( _fileStream );
+				// 讀取整張 Excel 資料
+				#region 讀取整張 Excel 資料
+
+				FileStream _readFileStream = File.Open( iFilePath, FileMode.Open, FileAccess.Read );
+				IExcelDataReader excelDataReader = ExcelReaderFactory.CreateOpenXmlReader( _readFileStream );
 
 				DataSet _dataSet = excelDataReader.AsDataSet();
 				DataRowCollection _dataRow = _dataSet.Tables[ 0 ].Rows;
 				DataColumnCollection _dataColumn = _dataSet.Tables[ 0 ].Columns;
 
 
+				// 讀取表格類型
+				EExcelContentType _excelContentType = GetExcelContentType( _dataColumn );
+				if( _excelContentType == EExcelContentType.None )
+					return false;
+
+				switch( _excelContentType )
+				{
+					case EExcelContentType.Single:
+						// 處理 單一表格
+						break;
+
+					case EExcelContentType.Multiple:
+						// 處理多重表格
+						break;
+				}
+
+				_readFileStream.Close();
+
+				#endregion
 
 				return true;
 			}
@@ -160,18 +203,49 @@ namespace ExcelConverter
 			{
 				Label_Text.Text		= "[Exception] Msg : " + _exception.Message;
 
+				string _logFileName = Path.GetFileName( iFilePath );
+
+				LogConvertException( _exception.Message, _logFileName, GetConvertedFolderPath() );
+
 				return false;
 			}
+		}
+
+		private EExcelContentType GetExcelContentType( DataColumnCollection iDataColumn )
+		{
+			switch( iDataColumn[ 0 ].ToString() )
+			{
+				case ExcelContentType_Single:
+					return EExcelContentType.Single;
+
+				case ExcelContentType_Multiple:
+					return EExcelContentType.Multiple;
+			}
+
+			return EExcelContentType.None;
 		}
 
 		#endregion
 
 		#region Log
 
-		public void LogTextResult( string iLog, string iLogFolderPath )
+		private void LogTextResult( string iLog, string iLogFolderPath )
 		{
 			string _FileName = string.Format( "[{0}] Convert Excel Result.txt", DateTime.Now.ToString( "yyyy.MM.dd - HHmmss" ) );
-			string _FilePath = Path.Combine( iLogFolderPath, _FileName );
+
+			LogTextFile( iLog, _FileName, iLogFolderPath );
+		}
+
+		private void LogConvertException( string iLog, string iLogFileName, string iLogFolderPath )
+		{
+			string _FileName = string.Format( "[{0}] Convert Excel Exception - {1}.txt", DateTime.Now.ToString( "yyyy.MM.dd - HHmmss" ), iLogFileName );
+
+			LogTextFile( iLog, _FileName, iLogFolderPath );
+		}
+
+		private void LogTextFile( string iLog, string iFileName, string iLogFolderPath )
+		{
+			string _FilePath = Path.Combine( iLogFolderPath, iFileName );
 
 			using( FileStream _fs = File.Create( _FilePath ) )
 			{
