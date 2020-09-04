@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -30,11 +29,15 @@ namespace ExcelConverter
 		const string ConvertedFolderName	= "Excel_ConvertedFolder";
 		static readonly string[] AcceptedExcelExtentionArray = new string[]{ ".xlsx" };
 
-		const string ExcelContentType_Single	= "Single";
-		const string ExcelContentType_Multiple	= "Multiple";
-
+		// Excel 關鍵字
+		const string ExcelContentType_Single	= "#Single";
+		const string ExcelContentType_Multiple	= "#Multiple";
+		
 		const string EExcelReadSymbol = "#";
-		const string EExcelReadSymbol_EndOfSheet = "#END";
+		const string EExcelReadSymbol_StringType	= "#String";
+		const string EExcelReadSymbol_IntType		= "#Int";
+		const string EExcelReadSymbol_FloatType		= "#String";
+		const string EExcelReadSymbol_EndOfSheet	= "#END";
 		
 
 
@@ -173,31 +176,41 @@ namespace ExcelConverter
 				IExcelDataReader excelDataReader = ExcelReaderFactory.CreateOpenXmlReader( _readFileStream );
 
 				DataSet _dataSet = excelDataReader.AsDataSet();
-				DataRowCollection _dataRow = _dataSet.Tables[ 0 ].Rows;
-				DataColumnCollection _dataColumn = _dataSet.Tables[ 0 ].Columns;
-
+				
+				#endregion
 
 				// 讀取表格類型
-				EExcelContentType _excelContentType = GetExcelContentType( _dataColumn );
-				if( _excelContentType == EExcelContentType.None )
-					return false;
+				#region 讀取表格類型
 
-				switch( _excelContentType )
-				{
-					case EExcelContentType.Single:
-						// 處理 單一表格
-						break;
-
-					case EExcelContentType.Multiple:
-						// 處理多重表格
-						break;
-				}
-
-				_readFileStream.Close();
+				DataRowCollection _dataRow = _dataSet.Tables[ 0 ].Rows;
+				EExcelContentType _excelContentType = GetExcelContentType( _dataRow );
 
 				#endregion
 
-				return true;
+				// 轉換 Excel 資料
+				#region 轉換 Excel 資料
+
+				bool _convertResult = false;
+
+				switch( _excelContentType )
+				{
+					// 處理 單一表格
+					case EExcelContentType.Single:
+						_convertResult = ConvertExcelToBinary_Single( iFilePath, _dataSet );
+						break;
+
+					// 處理多重表格
+					case EExcelContentType.Multiple:
+						_convertResult = ConvertExcelToBinary_Multiple( iFilePath, _dataSet );
+						break;
+				}
+
+				#endregion
+
+				// 用完記得關掉
+				_readFileStream.Close();
+
+				return _convertResult;
 			}
 			catch ( Exception _exception )
 			{
@@ -211,9 +224,11 @@ namespace ExcelConverter
 			}
 		}
 
-		private EExcelContentType GetExcelContentType( DataColumnCollection iDataColumn )
+		private EExcelContentType GetExcelContentType( DataRowCollection iDataRow )
 		{
-			switch( iDataColumn[ 0 ].ToString() )
+			string _zerozeroSymbol = iDataRow[ 0 ][ 0 ].ToString();
+
+			switch( _zerozeroSymbol )
 			{
 				case ExcelContentType_Single:
 					return EExcelContentType.Single;
@@ -223,6 +238,42 @@ namespace ExcelConverter
 			}
 
 			return EExcelContentType.None;
+		}
+
+		private bool ConvertExcelToBinary_Single( string iFilePath, DataSet iDataSet )
+		{
+			DataRowCollection _dataRow = iDataSet.Tables[ 0 ].Rows;
+			DataColumnCollection _dataColumn = iDataSet.Tables[ 0 ].Columns;
+
+			string _testLogStr = string.Empty;
+
+			// 備註 : 讀取順序由左到右 ( A1:Z1 )，再來由上到下 ( A1:Z1 後讀 A2:Z2 )
+			for( int _rowIndex = 0; _rowIndex < _dataRow.Count; _rowIndex++ )
+			{
+				for( int _colIndex = 0; _colIndex < _dataColumn.Count; _colIndex++ )
+				{
+					string _readStr = _dataRow[ _rowIndex ][ _colIndex ].ToString();
+					if( _readStr == string.Empty )
+						continue;
+
+					_testLogStr += _readStr + "  ";
+				}
+				
+				_testLogStr += "\n";
+			}			
+
+			string _logFileName = Path.GetFileName( iFilePath );
+			LogTextFile( _testLogStr, "測試" +_logFileName + ".txt", GetConvertedFolderPath() );
+
+			return false;
+		}
+
+		private bool ConvertExcelToBinary_Multiple( string iFilePath, DataSet iDataSet )
+		{
+			//DataRowCollection _dataRow = _dataSet.Tables[ 0 ].Rows;
+			//DataColumnCollection _dataColumn = _dataSet.Tables[ 0 ].Columns;
+
+			return false;
 		}
 
 		#endregion
