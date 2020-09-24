@@ -37,7 +37,7 @@ namespace ExcelConverter
 		const string SourceFolderName		= "Excel_SourceFolder";
 		const string ConvertedFolderName	= "Excel_ConvertedFolder";
 		static readonly string[] AcceptedExcelExtentionArray = new string[]{ ".xlsx" };
-		const string OutputExtension		= ".vol1Data";
+		const string OutputExtension		= ".bytes";		// https://docs.unity3d.com/Manual/class-TextAsset.html
 
 		// Excel 關鍵字 - 表格類型
 		const string ExcelContentType_Single	= "#Single";
@@ -275,11 +275,12 @@ namespace ExcelConverter
 				FileStream _fileStream		= new FileStream( _newFilePath, FileMode.Create );
 				BinaryWriter _binaryWriter	= new BinaryWriter( _fileStream, Encoding.UTF8, true );
 
+				// ToDo : 表格類型應該也要寫進去
+
 				_binaryWriter.Write( _outputBinaryStream.GetBuffer() );
 				_binaryWriter.Close();
 
 				return true;
-
 			}
 			catch( Exception _exception )
 			{
