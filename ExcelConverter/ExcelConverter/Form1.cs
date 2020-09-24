@@ -22,23 +22,38 @@ namespace ExcelConverter
 		Multiple,	// 多重表格
 	}
 
+	public enum EExcelReadWork
+	{
+		None,
+		GroupIndex,		// 讀取到 GroupIndex
+		DataTypeRow,	// 讀取到資料格式 Row
+		DataContentRow,	// 讀取到資料內容 Row
+		End,
+	}
+
 	public partial class Form1 : Form
 	{
 		// Define
 		const string SourceFolderName		= "Excel_SourceFolder";
 		const string ConvertedFolderName	= "Excel_ConvertedFolder";
 		static readonly string[] AcceptedExcelExtentionArray = new string[]{ ".xlsx" };
+		const string OutputExtension		= ".vol1Data";
 
-		// Excel 關鍵字
+		// Excel 關鍵字 - 表格類型
 		const string ExcelContentType_Single	= "#Single";
 		const string ExcelContentType_Multiple	= "#Multiple";
 		
-		const string EExcelReadSymbol = "#";
+		// Excel 關鍵字 - 特殊關鍵字
+		const string EExcelSymbol = "#";
+		const string EExcelReadSymbol_GroupPrefix	= "#Group";
+		const string EExcelReadSymbol_EndOfSheet	= "#END";
+
+		// Excel 關鍵字 - 類型
+		const string EExcelReadSymbol_IndexType		= "#Index";
 		const string EExcelReadSymbol_StringType	= "#String";
 		const string EExcelReadSymbol_IntType		= "#Int";
-		const string EExcelReadSymbol_FloatType		= "#String";
-		const string EExcelReadSymbol_EndOfSheet	= "#END";
-		
+		const string EExcelReadSymbol_FloatType		= "#Float";
+				
 
 
 		public Form1()
@@ -212,7 +227,7 @@ namespace ExcelConverter
 
 				return _convertResult;
 			}
-			catch ( Exception _exception )
+			catch( Exception _exception )
 			{
 				Label_Text.Text		= "[Exception] Msg : " + _exception.Message;
 
@@ -242,22 +257,105 @@ namespace ExcelConverter
 
 		private bool ConvertExcelToBinary_Single( string iFilePath, DataSet iDataSet )
 		{
-			DataRowCollection _dataRow = iDataSet.Tables[ 0 ].Rows;
-			DataColumnCollection _dataColumn = iDataSet.Tables[ 0 ].Columns;
+			// 取單一表格的 Binary Stream
+			MemoryStream _outputBinaryStream;
+			ConvertExcelToBinary_Single( iFilePath, iDataSet, out _outputBinaryStream );
+
+			if( _outputBinaryStream == null )
+				return false;
+
+			// 輸出檔案
+			try
+			{				
+				string _newFileName = string.Format( "{0}{1}", Path.GetFileNameWithoutExtension( iFilePath ), OutputExtension );
+				string _newFilePath = iFilePath.Replace( GetSourceFolderPath(), GetConvertedFolderPath() );
+				_newFilePath		= _newFilePath.Replace( Path.GetFileName( iFilePath ), _newFileName );
+
+				FileStream _fileStream		= new FileStream( _newFilePath, FileMode.Create );
+				BinaryWriter _binaryWriter	= new BinaryWriter( _fileStream, Encoding.UTF8, true );
+
+				_binaryWriter.Write( _outputBinaryStream.GetBuffer() );
+				_binaryWriter.Close();
+
+				return true;
+
+			}
+			catch( Exception _exception )
+			{
+				string _logFileName = Path.GetFileName( iFilePath );
+
+				LogConvertException( _exception.Message, _logFileName, GetConvertedFolderPath() );
+
+				return false;
+			}
+		}
+
+		// 待改名 & 測試
+		private bool ConvertExcelToBinary_Single( string iFilePath, DataSet iDataSet, out MemoryStream _iOutputBinaryStream )
+		{
+			DataRowCollection _dataRowCollection = iDataSet.Tables[ 0 ].Rows;
+			DataColumnCollection _dataColumnCollection = iDataSet.Tables[ 0 ].Columns;
 
 			string _testLogStr = string.Empty;
 
-			// 備註 : 讀取順序由左到右 ( A1:Z1 )，再來由上到下 ( A1:Z1 後讀 A2:Z2 )
-			for( int _rowIndex = 0; _rowIndex < _dataRow.Count; _rowIndex++ )
+			// 資料
+			int _groupIndex = -1;
+			List<string> _typeList = null;  // 格式對應表
+			MemoryStream _outputBinaryStream = new MemoryStream();
+			BinaryWriter _binaryWriter = new BinaryWriter( _outputBinaryStream, Encoding.UTF8, true );
+
+			// 備註 : 讀取順序由左到右 ( A1:Z1 )，再來由上到下 ( A1:Z1 讀完後後讀 A2:Z2 )
+			for( int _rowIndex = 0; _rowIndex < _dataRowCollection.Count; _rowIndex++ )
 			{
-				for( int _colIndex = 0; _colIndex < _dataColumn.Count; _colIndex++ )
+				string _firstStr = _dataRowCollection[ _rowIndex ][ 0 ].ToString();
+
+				// 檢查是否要 跳過處理 / 處理特殊功能
+				EExcelReadWork _readWorkType = Get_StrReadWorkType( _firstStr );
+
+				// 處理結束符號
+				if( _readWorkType == EExcelReadWork.End )
 				{
-					string _readStr = _dataRow[ _rowIndex ][ _colIndex ].ToString();
+					break;
+				}
+
+				switch( _readWorkType )
+				{					
+					// ToD : 判斷 Group 符號, 回傳 Index
+					case EExcelReadWork.GroupIndex:
+						_groupIndex = GetConvertData_GroupIndex( _firstStr );
+						break;
+
+					case EExcelReadWork.DataTypeRow:
+						_typeList = GetConvertData_StrTypeList( _dataRowCollection[ _rowIndex ], _dataColumnCollection.Count );
+						break;
+
+					case EExcelReadWork.DataContentRow:
+						// ToDo : 還不知道回傳類型是什麼
+						MemoryStream _memoryStream;
+						GetConvertData_DataContentRow( _dataRowCollection[ _rowIndex ], _dataColumnCollection.Count, _typeList, out _memoryStream );
+						
+						if( _memoryStream == null )
+						{
+							_iOutputBinaryStream = null;
+							return false;
+						}
+						else
+						{
+							_binaryWriter.Write( _memoryStream.GetBuffer() );
+						}
+
+						break;
+				}
+
+				// Log Text 用
+				for( int _colIndex = 0; _colIndex < _dataColumnCollection.Count; _colIndex++ )
+				{
+					string _readStr = _dataRowCollection[ _rowIndex ][ _colIndex ].ToString();
 					if( _readStr == string.Empty )
 						continue;
 
 					_testLogStr += _readStr + "  ";
-				}
+				}				
 				
 				_testLogStr += "\n";
 			}			
@@ -265,7 +363,8 @@ namespace ExcelConverter
 			string _logFileName = Path.GetFileName( iFilePath );
 			LogTextFile( _testLogStr, "測試" +_logFileName + ".txt", GetConvertedFolderPath() );
 
-			return false;
+			_iOutputBinaryStream = _outputBinaryStream;
+			return true;
 		}
 
 		private bool ConvertExcelToBinary_Multiple( string iFilePath, DataSet iDataSet )
@@ -274,6 +373,126 @@ namespace ExcelConverter
 			//DataColumnCollection _dataColumn = _dataSet.Tables[ 0 ].Columns;
 
 			return false;
+		}
+
+		private EExcelReadWork Get_StrReadWorkType( string iCheckStr )
+		{
+			// 檢查起始符號
+			bool _startWithSymbols = iCheckStr.StartsWith( EExcelSymbol );
+			if( !_startWithSymbols )
+				return EExcelReadWork.DataContentRow;
+
+			if( iCheckStr.StartsWith( EExcelReadSymbol_GroupPrefix ) )
+			{
+				return EExcelReadWork.GroupIndex;
+			}
+
+			switch( iCheckStr )
+			{
+				case EExcelReadSymbol_IndexType:
+				case EExcelReadSymbol_StringType:
+				case EExcelReadSymbol_IntType:
+				case EExcelReadSymbol_FloatType:
+					return EExcelReadWork.DataTypeRow;
+
+				case EExcelReadSymbol_EndOfSheet:
+					return EExcelReadWork.End;
+
+				default:
+					return EExcelReadWork.None;
+			}
+		}
+
+		private int GetConvertData_GroupIndex( string iString )
+		{
+			try
+			{
+				string _index = iString.Replace( EExcelReadSymbol_GroupPrefix, string.Empty );
+
+				return Convert.ToInt32( _index );
+			}
+			catch
+			{
+				return -1;
+			}
+		}
+
+		private List<string> GetConvertData_StrTypeList( DataRow iDataRow, int iDataColumnCount )
+		{
+			List<string> _typeList = new List<string>();
+
+			for( int _colIndex = 0; _colIndex < iDataColumnCount; _colIndex++ )
+			{
+				string _readStr = iDataRow[ _colIndex ].ToString();
+
+				if( _readStr == string.Empty )
+				{
+					// 好像也可以不用做事情...
+				}
+
+				_typeList.Add( _readStr );
+			}
+
+			return _typeList;
+		}
+
+		private void GetConvertData_DataContentRow( DataRow iDataRow, int iDataColumnCount, List<string> iTypeRefList, out MemoryStream iMemoryStream )
+		{
+			if( iTypeRefList == null )
+			{
+				iMemoryStream = null;
+				return;
+			}
+
+			try
+			{
+				// 準備 Binary 空間
+				MemoryStream _memoryStream = new MemoryStream();
+				BinaryWriter _binaryWriter = new BinaryWriter( _memoryStream, Encoding.UTF8, true );
+
+				for( int _colIndex = 0; _colIndex < iDataColumnCount; _colIndex++ )
+				{
+					string _typeStr = iTypeRefList[ _colIndex ];
+					string _readStr = iDataRow[ _colIndex ].ToString();
+
+					if( _typeStr == string.Empty )
+						continue;
+				
+					// 根據類型寫入 Binary
+					switch( _typeStr )
+					{
+						case EExcelReadSymbol_IndexType:
+							int _index = Convert.ToInt32( _readStr );
+							_binaryWriter.Write( _index );
+							continue;
+
+						case EExcelReadSymbol_StringType:
+							_binaryWriter.Write( _readStr );
+							continue;
+
+						case EExcelReadSymbol_IntType:
+							int _intValue = Convert.ToInt32( _readStr );
+							_binaryWriter.Write( _intValue );
+							continue;
+
+						case EExcelReadSymbol_FloatType:
+							float _floatValue = (float)Convert.ToDouble( _readStr );
+							_binaryWriter.Write( _floatValue );
+							continue;
+
+						default:
+							iMemoryStream = null;
+							return;
+					}
+				}
+
+				iMemoryStream = _memoryStream;
+			}
+			catch
+			{
+				iMemoryStream = null;
+				return;
+			}
 		}
 
 		#endregion
