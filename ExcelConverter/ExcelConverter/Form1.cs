@@ -46,6 +46,7 @@ namespace ExcelConverter
 		// Excel 關鍵字 - 特殊關鍵字
 		const string EExcelSymbol = "#";
 		const string EExcelReadSymbol_GroupPrefix	= "#Group";
+		const string EExcelReadSymbol_EndOfLine		= "#EOL";
 		const string EExcelReadSymbol_EndOfSheet	= "#END";
 
 		// Excel 關鍵字 - 類型
@@ -314,9 +315,7 @@ namespace ExcelConverter
 
 				// 處理結束符號
 				if( _readWorkType == EExcelReadWork.End )
-				{
 					break;
-				}
 
 				switch( _readWorkType )
 				{					
@@ -327,12 +326,24 @@ namespace ExcelConverter
 
 					case EExcelReadWork.DataTypeRow:
 						_typeList = GetConvertData_StrTypeList( _dataRowCollection[ _rowIndex ], _dataColumnCollection.Count );
+						
+						// 把 Type 也寫進去檔案裡面. 可以留個紀錄 ( 也可以透過程式解開 )
+						string _typeHeaderStr = string.Empty;
+						for( int i=0; i < _typeList.Count; i++ )
+						{
+							if( i == 0 )
+								_typeHeaderStr = _typeList[ i ];
+							else
+								_typeHeaderStr += string.Format( ",{0}", _typeList[ i ] );
+						}
+
+						_binaryWriter.Write( _typeHeaderStr );
+
 						break;
 
 					case EExcelReadWork.DataContentRow:
-						// ToDo : 還不知道回傳類型是什麼
 						MemoryStream _memoryStream;
-						GetConvertData_DataContentRow( _dataRowCollection[ _rowIndex ], _dataColumnCollection.Count, _typeList, out _memoryStream );
+						GetConvertData_DataContentRow( _dataRowCollection[ _rowIndex ], _typeList, out _memoryStream );
 						
 						if( _memoryStream == null )
 						{
@@ -375,6 +386,9 @@ namespace ExcelConverter
 			return false;
 		}
 
+		/// <summary>
+		/// 根據字串內容回傳 EExcelReadWork 類型
+		/// </summary>
 		private EExcelReadWork Get_StrReadWorkType( string iCheckStr )
 		{
 			// 檢查起始符號
@@ -393,6 +407,8 @@ namespace ExcelConverter
 				case EExcelReadSymbol_StringType:
 				case EExcelReadSymbol_IntType:
 				case EExcelReadSymbol_FloatType:
+
+				case EExcelReadSymbol_EndOfLine:
 					return EExcelReadWork.DataTypeRow;
 
 				case EExcelReadSymbol_EndOfSheet:
@@ -425,10 +441,9 @@ namespace ExcelConverter
 			{
 				string _readStr = iDataRow[ _colIndex ].ToString();
 
-				if( _readStr == string.Empty )
-				{
-					// 好像也可以不用做事情...
-				}
+				// EOL 檢查
+				if( _readStr == EExcelReadSymbol_EndOfLine )
+					break;
 
 				_typeList.Add( _readStr );
 			}
@@ -436,7 +451,14 @@ namespace ExcelConverter
 			return _typeList;
 		}
 
-		private void GetConvertData_DataContentRow( DataRow iDataRow, int iDataColumnCount, List<string> iTypeRefList, out MemoryStream iMemoryStream )
+		/// <summary>
+		/// 把整排的 DataRow 轉成 BinaryStream
+		/// </summary>
+		/// <param name="iDataRow"></param>
+		/// <param name="iDataColumnCount"></param>
+		/// <param name="iTypeRefList"></param>
+		/// <param name="iMemoryStream"></param>
+		private void GetConvertData_DataContentRow( DataRow iDataRow, List<string> iTypeRefList, out MemoryStream iMemoryStream )
 		{
 			if( iTypeRefList == null )
 			{
@@ -450,7 +472,7 @@ namespace ExcelConverter
 				MemoryStream _memoryStream = new MemoryStream();
 				BinaryWriter _binaryWriter = new BinaryWriter( _memoryStream, Encoding.UTF8, true );
 
-				for( int _colIndex = 0; _colIndex < iDataColumnCount; _colIndex++ )
+				for( int _colIndex = 0; _colIndex < iTypeRefList.Count; _colIndex++ )
 				{
 					string _typeStr = iTypeRefList[ _colIndex ];
 					string _readStr = iDataRow[ _colIndex ].ToString();
@@ -461,6 +483,9 @@ namespace ExcelConverter
 					// 根據類型寫入 Binary
 					switch( _typeStr )
 					{
+						// Excel 關鍵字 - 類型
+						#region Excel 關鍵字 - 類型
+						
 						case EExcelReadSymbol_IndexType:
 							int _index = Convert.ToInt32( _readStr );
 							_binaryWriter.Write( _index );
@@ -480,6 +505,11 @@ namespace ExcelConverter
 							_binaryWriter.Write( _floatValue );
 							continue;
 
+						#endregion
+
+						case EExcelReadSymbol_EndOfLine:
+							break;
+
 						default:
 							iMemoryStream = null;
 							return;
@@ -487,6 +517,7 @@ namespace ExcelConverter
 				}
 
 				iMemoryStream = _memoryStream;
+				return;
 			}
 			catch
 			{
