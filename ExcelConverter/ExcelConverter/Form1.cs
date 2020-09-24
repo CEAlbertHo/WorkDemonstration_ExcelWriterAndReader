@@ -277,7 +277,7 @@ namespace ExcelConverter
 
 				// ToDo : 表格類型應該也要寫進去
 
-				_binaryWriter.Write( _outputBinaryStream.GetBuffer() );
+				_binaryWriter.Write( _outputBinaryStream.ToArray() );
 				_binaryWriter.Close();
 
 				return true;
@@ -353,7 +353,7 @@ namespace ExcelConverter
 						}
 						else
 						{
-							_binaryWriter.Write( _memoryStream.GetBuffer() );
+							_binaryWriter.Write( _memoryStream.ToArray() );
 						}
 
 						break;
