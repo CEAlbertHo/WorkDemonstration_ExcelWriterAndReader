@@ -1,12 +1,13 @@
 ﻿using System;
+using System.IO;
+using System.Text;
 using System.Collections.Generic;
+using System.Security.Cryptography;
+using System.Windows.Forms;
 using System.ComponentModel;
 using System.Drawing;
-using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 
 // ExcelDataReader 和 ExcelDataReader.DataSet 用
 using System.Data;
@@ -54,7 +55,13 @@ namespace ExcelConverter
 		const string EExcelReadSymbol_StringType	= "#String";
 		const string EExcelReadSymbol_IntType		= "#Int";
 		const string EExcelReadSymbol_FloatType		= "#Float";
-				
+
+		// 加密相關
+		static readonly bool	EnableStreamEncrypt		= true;
+		static readonly string	AesCrypto_EncryptKey	= "xKE2e5m8OWw2rvH7DNW2lWu8ZxOPdV22U9DnoMapnbI=";  // 備註：Base64 String
+		static readonly string	AesCrypto_EncryptIV		= "6WLfMD6yNbWYcnxTKlC07A==";  // 備註：Base64 String
+
+
 
 
 		public Form1()
@@ -272,13 +279,39 @@ namespace ExcelConverter
 				string _newFilePath = iFilePath.Replace( GetSourceFolderPath(), GetConvertedFolderPath() );
 				_newFilePath		= _newFilePath.Replace( Path.GetFileName( iFilePath ), _newFileName );
 
-				FileStream _fileStream		= new FileStream( _newFilePath, FileMode.Create );
-				BinaryWriter _binaryWriter	= new BinaryWriter( _fileStream, Encoding.UTF8, true );
+				// 避免忘了關造成 Stream 開著，改用 using				
+				using( FileStream _fileStream = new FileStream( _newFilePath, FileMode.Create ) )
+				{
+					if( EnableStreamEncrypt )
+					{
+						AesCryptoServiceProvider _aesAlg = new AesCryptoServiceProvider();
+						
+						// ToDO : 保留, 之後做 Key 產生器可以用
+						/*_aesAlg.GenerateKey();
+						_aesAlg.GenerateIV();
+						string _generateKey = Convert.ToBase64String( _aesAlg.Key );
+						string _generateIV	= Convert.ToBase64String( _aesAlg.IV );*/
 
-				// ToDo : 表格類型應該也要寫進去
+						byte[] _bytesKey = Convert.FromBase64String( AesCrypto_EncryptKey );
+						byte[] _bytesIV	 = Convert.FromBase64String( AesCrypto_EncryptIV );
+						ICryptoTransform _encryptor = _aesAlg.CreateEncryptor( _bytesKey, _bytesIV );
 
-				_binaryWriter.Write( _outputBinaryStream.ToArray() );
-				_binaryWriter.Close();
+						using( CryptoStream _cryptoStream = new CryptoStream( _fileStream, _encryptor, CryptoStreamMode.Write ) )
+						{
+							using( BinaryWriter _binaryWriter = new BinaryWriter( _fileStream, Encoding.UTF8, true ) )
+							{
+								_binaryWriter.Write( _outputBinaryStream.ToArray() );
+							}
+						}
+					}
+					else
+					{
+						using( BinaryWriter _binaryWriter = new BinaryWriter( _fileStream, Encoding.UTF8, true ) )
+						{
+							_binaryWriter.Write( _outputBinaryStream.ToArray() );
+						}
+					}					
+				}
 
 				return true;
 			}
@@ -320,7 +353,11 @@ namespace ExcelConverter
 
 				switch( _readWorkType )
 				{					
-					// ToD : 判斷 Group 符號, 回傳 Index
+					// ToDo : 表格類型應該也要寫進去
+					// ToDo : 可以再加一個版本欄位
+					// ToDo : 可以直接把有多少資料這件事也寫進去. 讀取的時候會比較方便
+
+					// ToDo : 判斷 Group 符號, 回傳 Index
 					case EExcelReadWork.GroupIndex:
 						_groupIndex = GetConvertData_GroupIndex( _firstStr );
 						break;
