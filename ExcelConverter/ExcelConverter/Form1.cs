@@ -298,8 +298,9 @@ namespace ExcelConverter
 
 						using( CryptoStream _cryptoStream = new CryptoStream( _fileStream, _encryptor, CryptoStreamMode.Write ) )
 						{
-							using( BinaryWriter _binaryWriter = new BinaryWriter( _fileStream, Encoding.UTF8, true ) )
+							using( BinaryWriter _binaryWriter = new BinaryWriter( _cryptoStream, Encoding.UTF8, true ) )
 							{
+								byte[] _byteArr = _outputBinaryStream.ToArray();
 								_binaryWriter.Write( _outputBinaryStream.ToArray() );
 							}
 						}
@@ -335,9 +336,15 @@ namespace ExcelConverter
 
 			// 資料
 			int _groupIndex = -1;
+
+			// EExcelReadWork.DataTypeRow 相關資料
 			List<string> _typeList = null;  // 格式對應表
-			MemoryStream _outputBinaryStream = new MemoryStream();
-			BinaryWriter _binaryWriter = new BinaryWriter( _outputBinaryStream, Encoding.UTF8, true );
+			string _typeHeaderStr = string.Empty;
+
+			// EExcelReadWork.DataContentRow 相關資料
+			int _dataRowCount = 0;
+			MemoryStream _dataContentStream  = new MemoryStream();		
+			BinaryWriter _dataContentBinaryWriter = new BinaryWriter( _dataContentStream, Encoding.UTF8, true );
 
 			// 備註 : 讀取順序由左到右 ( A1:Z1 )，再來由上到下 ( A1:Z1 讀完後後讀 A2:Z2 )
 			for( int _rowIndex = 0; _rowIndex < _dataRowCollection.Count; _rowIndex++ )
@@ -355,7 +362,6 @@ namespace ExcelConverter
 				{					
 					// ToDo : 表格類型應該也要寫進去
 					// ToDo : 可以再加一個版本欄位
-					// ToDo : 可以直接把有多少資料這件事也寫進去. 讀取的時候會比較方便
 
 					// ToDo : 判斷 Group 符號, 回傳 Index
 					case EExcelReadWork.GroupIndex:
@@ -366,7 +372,7 @@ namespace ExcelConverter
 						_typeList = GetConvertData_StrTypeList( _dataRowCollection[ _rowIndex ], _dataColumnCollection.Count );
 						
 						// 把 Type 也寫進去檔案裡面. 可以留個紀錄 ( 也可以透過程式解開 )
-						string _typeHeaderStr = string.Empty;
+						_typeHeaderStr = string.Empty;
 						for( int i=0; i < _typeList.Count; i++ )
 						{
 							if( i == 0 )
@@ -374,8 +380,6 @@ namespace ExcelConverter
 							else
 								_typeHeaderStr += string.Format( ",{0}", _typeList[ i ] );
 						}
-
-						_binaryWriter.Write( _typeHeaderStr );
 
 						break;
 
@@ -390,7 +394,8 @@ namespace ExcelConverter
 						}
 						else
 						{
-							_binaryWriter.Write( _memoryStream.ToArray() );
+							_dataContentBinaryWriter.Write( _memoryStream.ToArray() );
+							_dataRowCount++;
 						}
 
 						break;
@@ -411,8 +416,26 @@ namespace ExcelConverter
 
 			string _logFileName = Path.GetFileName( iFilePath );
 			LogTextFile( _testLogStr, "測試" +_logFileName + ".txt", GetConvertedFolderPath() );
+			
+
+			// 回傳資料整理
+			MemoryStream _outputBinaryStream = new MemoryStream();
+			BinaryWriter _outputBinaryWriter = new BinaryWriter( _outputBinaryStream, Encoding.UTF8, true );			
+			
+			_outputBinaryWriter.Write( _typeHeaderStr );
+			_outputBinaryWriter.Write( _dataRowCount );
+			_outputBinaryWriter.Write( _dataContentStream.ToArray() );
 
 			_iOutputBinaryStream = _outputBinaryStream;
+
+
+			// 關閉資料流
+			_dataContentBinaryWriter.Close();
+			_dataContentStream.Close();
+
+			_outputBinaryWriter.Close();
+			_outputBinaryStream.Close();
+
 			return true;
 		}
 
