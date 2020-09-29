@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Windows.Forms;
@@ -61,6 +62,8 @@ namespace ExcelConverter
 		static readonly string	AesCrypto_EncryptKey	= "xKE2e5m8OWw2rvH7DNW2lWu8ZxOPdV22U9DnoMapnbI=";  // 備註：Base64 String
 		static readonly string	AesCrypto_EncryptIV		= "6WLfMD6yNbWYcnxTKlC07A==";  // 備註：Base64 String
 
+		// 計時器
+		static readonly bool EnableStopwatch = true;
 
 
 
@@ -107,40 +110,85 @@ namespace ExcelConverter
 			List<string> _successFilePath	= new List<string>();
 			List<string> _failFilePath		= new List<string>();
 
+			TimeSpan _totalConvertTime = new TimeSpan( 0, 0, 0 );
+			Dictionary<string, string> _fileConvertTimeDic = new Dictionary<string, string>();
+
 			string[] _filesPath = Directory.GetFiles( GetSourceFolderPath(), "*.*", SearchOption.AllDirectories );
 
 			for( int i=0; i < _filesPath.Length; i++ )
 			{
+				// Stopwatch
+				Stopwatch _stopwatch = new Stopwatch();
+				if( EnableStopwatch )
+				{
+					_stopwatch.Start();
+				}
+
+				// 轉換檔案
 				bool _result = TryConvertExcel( _filesPath[ i ] );
 				if( _result )
 					_successFilePath.Add( _filesPath[ i ] );
 				else
 					_failFilePath.Add( _filesPath[ i ] );
+
+				if( EnableStopwatch )
+				{
+					_stopwatch.Stop();
+
+					TimeSpan _ts = _stopwatch.Elapsed;
+					_totalConvertTime = _totalConvertTime.Add( _ts );
+					
+					string _elapsedTime = string.Format( "{0}.{1}", _ts.Seconds, _ts.Milliseconds );
+					_fileConvertTimeDic.Add( _filesPath[ i ], _elapsedTime );
+				}
 			}
 
 			Label_Text.Text = string.Format( "ConvertExcel Done.\nSuccessed Num : {0}.\nFailed Num : {1}", _successFilePath.Count, _failFilePath.Count );
 
-			
-			// 輸出 Log
+
+			// 輸出轉換結果 Log
+			#region 輸出轉換結果 Log
+
 			string _logText = string.Empty;
 			_logText += string.Format( "Successed File Count : {0}\n", _successFilePath.Count );
 
 			for( int i=0; i < _successFilePath.Count; i++ )
 			{
-				_logText += string.Format( "- {0}\n", _successFilePath[ i ] );
+				if( EnableStopwatch )
+				{
+					string _convertTimeStr = "N/A";
+					_fileConvertTimeDic.TryGetValue( _successFilePath[ i ], out _convertTimeStr );
+					_logText += string.Format( "- {0} ({1})\n", _successFilePath[ i ], _convertTimeStr );
+				}
+				else
+					_logText += string.Format( "- {0}\n", _successFilePath[ i ] );
 			}
 
 			_logText += string.Format( "\n\n---\n\n" );
 			_logText += string.Format( "Failed File Count : {0}\n", _failFilePath.Count );
 			for( int i=0; i < _failFilePath.Count; i++ )
 			{
-				_logText += string.Format( "- {0}\n", _failFilePath[ i ] );
+				if( EnableStopwatch )
+				{
+					string _convertTimeStr = "N/A";
+					_fileConvertTimeDic.TryGetValue( _failFilePath[ i ], out _convertTimeStr );
+					_logText += string.Format( "- {0} ({1})\n", _failFilePath[ i ], _convertTimeStr );
+				}
+				else
+					_logText += string.Format( "- {0}\n", _failFilePath[ i ] );
 			}
 
 			_logText += string.Format( "\n\n---\n\n" );
 			_logText += "ConvertExcel Done.";
 
+			if( EnableStopwatch )
+			{
+				_logText += string.Format( " ( TotalTime : {0}:{1}.{2} )", _totalConvertTime.Minutes, _totalConvertTime.Seconds, _totalConvertTime.Milliseconds );
+			}
+
 			LogTextResult( _logText, GetConvertedFolderPath() );
+			
+			#endregion
 		}
 
 		#endregion
