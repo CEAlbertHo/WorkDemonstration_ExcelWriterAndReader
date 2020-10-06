@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Windows.Forms;
@@ -61,6 +62,11 @@ namespace ExcelConverter
 		static readonly string	AesCrypto_EncryptKey	= "xKE2e5m8OWw2rvH7DNW2lWu8ZxOPdV22U9DnoMapnbI=";  // 備註：Base64 String
 		static readonly string	AesCrypto_EncryptIV		= "6WLfMD6yNbWYcnxTKlC07A==";  // 備註：Base64 String
 
+		// 計時器
+		static readonly bool EnableStopwatch = true;
+
+		// Log Output 相關 ( 備註：會把 Excel 讀到的檔案轉成 txt. 不過會大幅影響效能. 要修正效率的話要改成 StringBuilder.Append 再做測試 )
+		static readonly bool EnableLogTxt = false;
 
 
 
@@ -107,40 +113,85 @@ namespace ExcelConverter
 			List<string> _successFilePath	= new List<string>();
 			List<string> _failFilePath		= new List<string>();
 
+			TimeSpan _totalConvertTime = new TimeSpan( 0, 0, 0 );
+			Dictionary<string, string> _fileConvertTimeDic = new Dictionary<string, string>();
+
 			string[] _filesPath = Directory.GetFiles( GetSourceFolderPath(), "*.*", SearchOption.AllDirectories );
 
 			for( int i=0; i < _filesPath.Length; i++ )
 			{
+				// Stopwatch
+				Stopwatch _stopwatch = new Stopwatch();
+				if( EnableStopwatch )
+				{
+					_stopwatch.Start();
+				}
+
+				// 轉換檔案
 				bool _result = TryConvertExcel( _filesPath[ i ] );
 				if( _result )
 					_successFilePath.Add( _filesPath[ i ] );
 				else
 					_failFilePath.Add( _filesPath[ i ] );
+
+				if( EnableStopwatch )
+				{
+					_stopwatch.Stop();
+
+					TimeSpan _ts = _stopwatch.Elapsed;
+					_totalConvertTime = _totalConvertTime.Add( _ts );
+					
+					string _elapsedTime = string.Format( "{0}.{1}", _ts.Seconds, _ts.Milliseconds );
+					_fileConvertTimeDic.Add( _filesPath[ i ], _elapsedTime );
+				}
 			}
 
 			Label_Text.Text = string.Format( "ConvertExcel Done.\nSuccessed Num : {0}.\nFailed Num : {1}", _successFilePath.Count, _failFilePath.Count );
 
-			
-			// 輸出 Log
+
+			// 輸出轉換結果 Log
+			#region 輸出轉換結果 Log
+
 			string _logText = string.Empty;
 			_logText += string.Format( "Successed File Count : {0}\n", _successFilePath.Count );
 
 			for( int i=0; i < _successFilePath.Count; i++ )
 			{
-				_logText += string.Format( "- {0}\n", _successFilePath[ i ] );
+				if( EnableStopwatch )
+				{
+					string _convertTimeStr = "N/A";
+					_fileConvertTimeDic.TryGetValue( _successFilePath[ i ], out _convertTimeStr );
+					_logText += string.Format( "- {0} ({1})\n", _successFilePath[ i ], _convertTimeStr );
+				}
+				else
+					_logText += string.Format( "- {0}\n", _successFilePath[ i ] );
 			}
 
 			_logText += string.Format( "\n\n---\n\n" );
 			_logText += string.Format( "Failed File Count : {0}\n", _failFilePath.Count );
 			for( int i=0; i < _failFilePath.Count; i++ )
 			{
-				_logText += string.Format( "- {0}\n", _failFilePath[ i ] );
+				if( EnableStopwatch )
+				{
+					string _convertTimeStr = "N/A";
+					_fileConvertTimeDic.TryGetValue( _failFilePath[ i ], out _convertTimeStr );
+					_logText += string.Format( "- {0} ({1})\n", _failFilePath[ i ], _convertTimeStr );
+				}
+				else
+					_logText += string.Format( "- {0}\n", _failFilePath[ i ] );
 			}
 
 			_logText += string.Format( "\n\n---\n\n" );
 			_logText += "ConvertExcel Done.";
 
+			if( EnableStopwatch )
+			{
+				_logText += string.Format( " ( TotalTime : {0}:{1}.{2} )", _totalConvertTime.Minutes, _totalConvertTime.Seconds, _totalConvertTime.Milliseconds );
+			}
+
 			LogTextResult( _logText, GetConvertedFolderPath() );
+			
+			#endregion
 		}
 
 		#endregion
@@ -332,6 +383,7 @@ namespace ExcelConverter
 			DataRowCollection _dataRowCollection = iDataSet.Tables[ 0 ].Rows;
 			DataColumnCollection _dataColumnCollection = iDataSet.Tables[ 0 ].Columns;
 
+			// ToDo : 待重新命名
 			string _testLogStr = string.Empty;
 
 			// 資料
@@ -401,21 +453,28 @@ namespace ExcelConverter
 						break;
 				}
 
-				// Log Text 用
-				for( int _colIndex = 0; _colIndex < _dataColumnCollection.Count; _colIndex++ )
+				// Log Text				
+				if( EnableLogTxt )
 				{
-					string _readStr = _dataRowCollection[ _rowIndex ][ _colIndex ].ToString();
-					if( _readStr == string.Empty )
-						continue;
+					for( int _colIndex = 0; _colIndex < _dataColumnCollection.Count; _colIndex++ )
+					{
+						string _readStr = _dataRowCollection[ _rowIndex ][ _colIndex ].ToString();
+						if( _readStr == string.Empty )
+							continue;
 
-					_testLogStr += _readStr + "  ";
-				}				
+						_testLogStr += _readStr + "  ";
+					}				
 				
-				_testLogStr += "\n";
-			}			
+					_testLogStr += "\n";
+				}
+			}
 
-			string _logFileName = Path.GetFileName( iFilePath );
-			LogTextFile( _testLogStr, "測試" +_logFileName + ".txt", GetConvertedFolderPath() );
+			// Log Text
+			if( EnableLogTxt )
+			{
+				string _logFileName = Path.GetFileName( iFilePath );
+				LogTextFile( _testLogStr, "測試" +_logFileName + ".txt", GetConvertedFolderPath() );
+			}
 			
 
 			// 回傳資料整理
