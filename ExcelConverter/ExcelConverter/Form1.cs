@@ -65,6 +65,9 @@ namespace ExcelConverter
 		// 計時器
 		static readonly bool EnableStopwatch = true;
 
+		// Log Output 相關 ( 備註：會把 Excel 讀到的檔案轉成 txt. 不過會大幅影響效能. 要修正效率的話要改成 StringBuilder.Append 再做測試 )
+		static readonly bool EnableLogTxt = false;
+
 
 
 		public Form1()
@@ -380,6 +383,7 @@ namespace ExcelConverter
 			DataRowCollection _dataRowCollection = iDataSet.Tables[ 0 ].Rows;
 			DataColumnCollection _dataColumnCollection = iDataSet.Tables[ 0 ].Columns;
 
+			// ToDo : 待重新命名
 			string _testLogStr = string.Empty;
 
 			// 資料
@@ -449,21 +453,28 @@ namespace ExcelConverter
 						break;
 				}
 
-				// Log Text 用
-				for( int _colIndex = 0; _colIndex < _dataColumnCollection.Count; _colIndex++ )
+				// Log Text				
+				if( EnableLogTxt )
 				{
-					string _readStr = _dataRowCollection[ _rowIndex ][ _colIndex ].ToString();
-					if( _readStr == string.Empty )
-						continue;
+					for( int _colIndex = 0; _colIndex < _dataColumnCollection.Count; _colIndex++ )
+					{
+						string _readStr = _dataRowCollection[ _rowIndex ][ _colIndex ].ToString();
+						if( _readStr == string.Empty )
+							continue;
 
-					_testLogStr += _readStr + "  ";
-				}				
+						_testLogStr += _readStr + "  ";
+					}				
 				
-				_testLogStr += "\n";
-			}			
+					_testLogStr += "\n";
+				}
+			}
 
-			string _logFileName = Path.GetFileName( iFilePath );
-			LogTextFile( _testLogStr, "測試" +_logFileName + ".txt", GetConvertedFolderPath() );
+			// Log Text
+			if( EnableLogTxt )
+			{
+				string _logFileName = Path.GetFileName( iFilePath );
+				LogTextFile( _testLogStr, "測試" +_logFileName + ".txt", GetConvertedFolderPath() );
+			}
 			
 
 			// 回傳資料整理
