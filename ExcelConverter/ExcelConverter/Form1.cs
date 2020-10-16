@@ -325,10 +325,18 @@ namespace ExcelConverter
 
 			// 輸出檔案
 			try
-			{				
+			{
+				// 輸出路徑
 				string _newFileName = string.Format( "{0}{1}", Path.GetFileNameWithoutExtension( iFilePath ), OutputExtension );
 				string _newFilePath = iFilePath.Replace( GetSourceFolderPath(), GetConvertedFolderPath() );
 				_newFilePath		= _newFilePath.Replace( Path.GetFileName( iFilePath ), _newFileName );
+
+				// 如果輸出路徑不存在，建立資料夾
+				string _newFileFolderPath = _newFilePath.Replace( Path.GetFileName( _newFilePath ), string.Empty );
+				if( !Directory.Exists( _newFileFolderPath ) )
+				{
+					Directory.CreateDirectory( _newFileFolderPath );
+				}
 
 				// 避免忘了關造成 Stream 開著，改用 using				
 				using( FileStream _fileStream = new FileStream( _newFilePath, FileMode.Create ) )
