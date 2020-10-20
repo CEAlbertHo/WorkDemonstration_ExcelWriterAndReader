@@ -3,8 +3,6 @@
 ## -簡介-
 這是一個能夠逐行讀取支援的 Excel 格式工作表，搭配指定的關鍵字，來做到把 Excel 資料序列化成二進制格式 ( binary format ) 的檔案的工具。
 
-<br/>
-
 ---
 
 ## 主要功能介紹
@@ -17,13 +15,9 @@
 
 ## 使用介紹
 
-<br/>
-
 主畫面如圖所示。
 
 ![主視窗](https://i.ibb.co/2s1rDWX/Excel-Converter.png)
-
-<br/>
 
 目前有兩個功能
 
@@ -31,8 +25,6 @@
    1-1. 如果執行檔所處的路徑中沒有 "來源資料夾" 及 "目標資料夾" 的話，會建立這兩個資料夾。
    
    ![建立資料夾](https://i.ibb.co/BZQfRfT/Excel-Converter-Create-Directory.png)
-
-<br/>
 
 2. Excel 檔案轉換功能 ( Convert Excel 按鈕 )   
    2-1. 把符合指定格式的 Excel 檔案放到來源資料夾裡面後，直接點轉換按鈕就會開始執行。
