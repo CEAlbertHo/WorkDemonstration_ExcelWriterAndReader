@@ -43,6 +43,7 @@
 
 
 檔案轉換完之後，可以在其他地方用對應的 Key 和 IV 來解開 Binary 資料，並可以還原成想儲存的資料結構格式。
+
  - 解開 Binary 檔案範例
  ![Binary 解碼](https://i.ibb.co/GdxMBRR/Decrypted-Binary.png)
 
