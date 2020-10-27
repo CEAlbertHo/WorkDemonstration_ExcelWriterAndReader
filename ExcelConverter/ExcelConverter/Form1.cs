@@ -1,4 +1,5 @@
-﻿using System;
+﻿// Copyright ©2020 Albert Ho ( rt135792005@gmail.com ). All rights reserved.
+using System;
 using System.IO;
 using System.Text;
 using System.Diagnostics;
