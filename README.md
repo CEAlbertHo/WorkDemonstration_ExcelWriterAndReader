@@ -47,3 +47,14 @@
  - 解開 Binary 檔案範例
  ![Binary 解碼](https://i.ibb.co/GdxMBRR/Decrypted-Binary.png)
 
+
+
+
+
+
+
+
+
+
+
+// Copyright ©2020 Albert Ho ( rt135792005@gmail.com ). All rights reserved.
