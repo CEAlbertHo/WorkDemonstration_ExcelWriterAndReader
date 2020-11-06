@@ -1,4 +1,4 @@
-# ExcelWriterAndReader ( Excel 讀檔 & 寫黨工具 )
+# ExcelWriterAndReader ( Excel 讀檔 & 寫檔工具 )
 
 ## -簡介-
 這是一個能夠逐行讀取支援的 Excel 格式工作表，搭配指定的關鍵字，來做到把 Excel 資料序列化成二進制格式 ( binary format ) 的檔案的工具。
